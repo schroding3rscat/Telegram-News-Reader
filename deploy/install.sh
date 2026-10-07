@@ -84,16 +84,23 @@ available_mb="$(df -Pm /var | awk 'NR==2 {print $4}')"
 ((available_mb >= 2500)) || die "At least 2.5 GB free disk space under /var is required"
 
 prompt() {
-  local variable="$1" label="$2" secret="${3:-0}" value="${!variable:-}"
-  if [[ -n "$value" ]]; then return; fi
-  [[ "$NON_INTERACTIVE" -eq 0 ]] || die "$variable is required in non-interactive mode"
+  local name="$1" label="$2" secret="${3:-0}" value=""
+  [[ "$name" =~ ^[A-Z_][A-Z0-9_]*$ ]] || die "invalid prompt variable"
+  if declare -p "$name" >/dev/null 2>&1; then
+    value="${!name}"
+  fi
+  if [[ -n "$value" ]]; then
+    return
+  fi
+  [[ "$NON_INTERACTIVE" -eq 0 ]] || die "$name is required in non-interactive mode"
   if [[ "$secret" -eq 1 ]]; then
-    read -r -s -p "${label}: " value </dev/tty; printf '\n'
+    read -r -s -p "${label}: " value </dev/tty
+    printf '\n'
   else
     read -r -p "${label}: " value </dev/tty
   fi
   [[ -n "$value" ]] || die "${label} cannot be empty"
-  printf -v "$variable" '%s' "$value"
+  printf -v "$name" '%s' "$value"
 }
 
 if [[ "$UPDATE_ONLY" -eq 0 || ! -f "$CONFIG_FILE" ]]; then
