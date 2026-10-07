@@ -150,6 +150,8 @@ func (p *Pipeline) processBatch(ctx context.Context, messages []storage.Message)
 				return markErr
 			}
 		}
+
+		p.noteProcessed(ctx, 0)
 		return nil
 	}
 
@@ -172,6 +174,8 @@ func (p *Pipeline) processBatch(ctx context.Context, messages []storage.Message)
 				return markErr
 			}
 		}
+
+		p.noteProcessed(ctx, 0)
 		return p.store.AddFingerprint(ctx, match.Fingerprint)
 	}
 	reason := ""
@@ -206,6 +210,8 @@ func (p *Pipeline) processBatch(ctx context.Context, messages []storage.Message)
 				return markErr
 			}
 		}
+
+		p.noteProcessed(ctx, 1)
 		return p.store.AddFingerprint(ctx, match.Fingerprint)
 	}
 
@@ -231,7 +237,13 @@ func (p *Pipeline) processBatch(ctx context.Context, messages []storage.Message)
 			}
 		}
 	}
+
+	p.noteProcessed(ctx, 0)
 	return p.store.AddFingerprint(ctx, match.Fingerprint)
+}
+
+func (p *Pipeline) noteProcessed(ctx context.Context, ads int64) {
+	_ = p.store.AddHourlyMetrics(ctx, 1, ads, 0, 0)
 }
 
 func (p *Pipeline) publish(ctx context.Context, messages []storage.Message, source storage.Source,

@@ -68,6 +68,13 @@ func TestProcessOncePublishesExactlyOnce(t *testing.T) {
 	if message.Status != "published" {
 		t.Fatalf("expected published, got %s", message.Status)
 	}
+	dashboard, err := store.Dashboard(ctx, 1, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.ProcessedTotal != 1 || dashboard.AdsTotal != 0 {
+		t.Fatalf("expected processed metric, got %+v", dashboard)
+	}
 	if err := processor.ProcessOnce(ctx); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected queue to be empty, got %v", err)
 	}

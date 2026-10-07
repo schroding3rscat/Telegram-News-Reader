@@ -63,6 +63,31 @@ func TestFeedbackSearch(t *testing.T) {
 	}
 }
 
+func TestDashboardAggregatesHourlyMetrics(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	store := openTestStore(t)
+	if err := store.AddHourlyMetrics(ctx, 3, 1, 400, 2); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.AddHourlyMetrics(ctx, 2, 0, 100, 1); err != nil {
+		t.Fatal(err)
+	}
+	dashboard, err := store.Dashboard(ctx, 14, time.Now().UTC())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dashboard.ProcessedTotal != 5 || dashboard.AdsTotal != 1 || dashboard.LatencyCalls != 3 {
+		t.Fatalf("unexpected totals: %+v", dashboard)
+	}
+	if dashboard.LatencyAvgMs < 166 || dashboard.LatencyAvgMs > 167 {
+		t.Fatalf("unexpected average latency: %v", dashboard.LatencyAvgMs)
+	}
+	if len(dashboard.Processed) != 14 {
+		t.Fatalf("expected 14 daily points, got %d", len(dashboard.Processed))
+	}
+}
+
 func TestCleanupKeepsQuarantine(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

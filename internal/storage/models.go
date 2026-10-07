@@ -91,3 +91,18 @@ type QuarantineItem struct {
 	ID             int64
 	TelegramMsgID  int
 }
+
+type MetricPoint struct {
+	Day   string
+	Value float64
+}
+
+type Dashboard struct {
+	Processed      []MetricPoint
+	Ads            []MetricPoint
+	Latency        []MetricPoint
+	LatencyAvgMs   float64
+	ProcessedTotal int64
+	AdsTotal       int64
+	LatencyCalls   int64
+}

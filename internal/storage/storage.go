@@ -150,6 +150,14 @@ CREATE TABLE IF NOT EXISTS publications (
 	created_at INTEGER NOT NULL,
 	UNIQUE(destination_chat_id, destination_message_id)
 );
+
+CREATE TABLE IF NOT EXISTS metrics_hourly (
+	hour_unix INTEGER PRIMARY KEY,
+	processed INTEGER NOT NULL DEFAULT 0,
+	ads INTEGER NOT NULL DEFAULT 0,
+	llm_latency_sum_ms INTEGER NOT NULL DEFAULT 0,
+	llm_calls INTEGER NOT NULL DEFAULT 0
+);
 `
 
 type Store struct {
@@ -157,8 +165,9 @@ type Store struct {
 }
 
 const (
-	databaseOpenTimeout = 20 * time.Second
-	maxFeedbackTerms    = 8
+	databaseOpenTimeout  = 20 * time.Second
+	maxFeedbackTerms     = 8
+	metricsRetentionDays = 30
 )
 
 func Open(path string) (*Store, error) {
@@ -680,6 +689,82 @@ func (s *Store) AddPublication(ctx context.Context, messageID, chatID int64, tar
 	return err
 }
 
+func (s *Store) AddHourlyMetrics(ctx context.Context, processed, ads, latencyMs, calls int64) error {
+	if processed == 0 && ads == 0 && calls == 0 {
+		return nil
+	}
+	hour := time.Now().UTC().Truncate(time.Hour).Unix()
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO metrics_hourly(hour_unix, processed, ads, llm_latency_sum_ms, llm_calls)
+		VALUES(?, ?, ?, ?, ?)
+		ON CONFLICT(hour_unix) DO UPDATE SET
+			processed=processed+excluded.processed,
+			ads=ads+excluded.ads,
+			llm_latency_sum_ms=llm_latency_sum_ms+excluded.llm_latency_sum_ms,
+			llm_calls=llm_calls+excluded.llm_calls`,
+		hour, processed, ads, latencyMs, calls)
+	return err
+}
+
+func (s *Store) Dashboard(ctx context.Context, days int, now time.Time) (Dashboard, error) {
+	if days < 1 {
+		days = 1
+	}
+	now = now.UTC()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, 1-days)
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT hour_unix, processed, ads, llm_latency_sum_ms, llm_calls
+		FROM metrics_hourly WHERE hour_unix >= ? ORDER BY hour_unix`, start.Unix())
+	if err != nil {
+		return Dashboard{}, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	processedByDay := make(map[string]int64, days)
+	adsByDay := make(map[string]int64, days)
+	latencySumByDay := make(map[string]int64, days)
+	latencyCallsByDay := make(map[string]int64, days)
+	var dashboard Dashboard
+
+	for rows.Next() {
+		var hourUnix, processed, ads, latencySum, calls int64
+		if scanErr := rows.Scan(&hourUnix, &processed, &ads, &latencySum, &calls); scanErr != nil {
+			return Dashboard{}, scanErr
+		}
+		day := time.Unix(hourUnix, 0).UTC().Format("02.01")
+		processedByDay[day] += processed
+		adsByDay[day] += ads
+		latencySumByDay[day] += latencySum
+		latencyCallsByDay[day] += calls
+		dashboard.ProcessedTotal += processed
+		dashboard.AdsTotal += ads
+		dashboard.LatencyCalls += calls
+		dashboard.LatencyAvgMs += float64(latencySum)
+	}
+	if err := rows.Err(); err != nil {
+		return Dashboard{}, err
+	}
+	if dashboard.LatencyCalls > 0 {
+		dashboard.LatencyAvgMs /= float64(dashboard.LatencyCalls)
+	}
+
+	dashboard.Processed = make([]MetricPoint, 0, days)
+	dashboard.Ads = make([]MetricPoint, 0, days)
+	dashboard.Latency = make([]MetricPoint, 0, days)
+	for offset := range days {
+		day := start.AddDate(0, 0, offset)
+		label := day.Format("02.01")
+		dashboard.Processed = append(dashboard.Processed, MetricPoint{Day: label, Value: float64(processedByDay[label])})
+		dashboard.Ads = append(dashboard.Ads, MetricPoint{Day: label, Value: float64(adsByDay[label])})
+		latency := 0.0
+		if latencyCallsByDay[label] > 0 {
+			latency = float64(latencySumByDay[label]) / float64(latencyCallsByDay[label])
+		}
+		dashboard.Latency = append(dashboard.Latency, MetricPoint{Day: label, Value: latency})
+	}
+	return dashboard, nil
+}
+
 func (s *Store) Cleanup(ctx context.Context, before time.Time) (int64, error) {
 	var affected int64
 	err := withTx(ctx, s.db, func(tx *sql.Tx) error {
@@ -688,9 +773,13 @@ func (s *Store) Cleanup(ctx context.Context, before time.Time) (int64, error) {
 			return err
 		}
 		affected, _ = result.RowsAffected()
-		_, err = tx.ExecContext(ctx, `
+		if _, err = tx.ExecContext(ctx, `
 			DELETE FROM messages WHERE received_at < ? AND status IN ('published','duplicate','ignored')
-			AND id NOT IN (SELECT message_id FROM quarantine)`, before.Unix())
+			AND id NOT IN (SELECT message_id FROM quarantine)`, before.Unix()); err != nil {
+			return err
+		}
+		metricsBefore := time.Now().UTC().AddDate(0, 0, -metricsRetentionDays).Unix()
+		_, err = tx.ExecContext(ctx, `DELETE FROM metrics_hourly WHERE hour_unix < ?`, metricsBefore)
 		return err
 	})
 	return affected, err

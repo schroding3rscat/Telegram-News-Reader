@@ -8,6 +8,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -61,9 +62,15 @@ type pageData struct {
 	TargetChannel   string
 	FeedbackUserIDs string
 	BotStatus       string
+	LatencyLabel    string
+	ProcessedChart  ChartView
+	AdsChart        ChartView
+	LatencyChart    ChartView
 	Sources         []storage.Source
 	Quarantine      []storage.QuarantineItem
 	Topics          []storage.Topic
+	Dashboard       storage.Dashboard
+	Days            int
 }
 
 const (
@@ -220,14 +227,32 @@ func (s *Server) root(c fiber.Ctx) error {
 	if !s.setupComplete(c.Context()) {
 		return s.redirect(c, "/setup")
 	}
-	return s.redirect(c, "/sources")
+	dashboard, err := s.store.Dashboard(c.Context(), dashboardDays, time.Now())
+	if err != nil {
+		return err
+	}
+	latencyLabel := "нет данных"
+	if dashboard.LatencyCalls > 0 {
+		latencyLabel = fmt.Sprintf("%.0f мс", dashboard.LatencyAvgMs)
+	}
+	return s.render(c, &pageData{
+		Title:          "Обзор",
+		Page:           "dashboard",
+		Dashboard:      dashboard,
+		Days:           dashboardDays,
+		LatencyLabel:   latencyLabel,
+		ProcessedChart: newChart("Обработанные новости", "", dashboard.Processed),
+		AdsChart:       newChart("Отсеянная реклама", "", dashboard.Ads),
+		LatencyChart:   newChart("Время ответа модели", "мс", dashboard.Latency),
+		Flash:          flash(c),
+	})
 }
 
 func (s *Server) setupPage(c fiber.Ctx) error {
 	if s.setupComplete(c.Context()) {
-		return s.redirect(c, "/sources")
+		return s.redirect(c, "/")
 	}
-	return s.render(c, pageData{Title: "Настройка", Page: "setup"})
+	return s.render(c, &pageData{Title: "Настройка", Page: "setup"})
 }
 
 func (s *Server) setupSave(c fiber.Ctx) error {
@@ -256,7 +281,7 @@ func (s *Server) setupSave(c fiber.Ctx) error {
 	if s.configured != nil {
 		s.configured()
 	}
-	return s.redirect(c, "/sources?ok=configured")
+	return s.redirect(c, "/?ok=configured")
 }
 
 func (s *Server) sourcesPage(c fiber.Ctx) error {
@@ -267,7 +292,7 @@ func (s *Server) sourcesPage(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return s.render(c, pageData{Title: "Источники", Page: "sources", Sources: sources, Flash: flash(c)})
+	return s.render(c, &pageData{Title: "Источники", Page: "sources", Sources: sources, Flash: flash(c)})
 }
 
 func (s *Server) sourceAdd(c fiber.Ctx) error {
@@ -304,7 +329,7 @@ func (s *Server) quarantinePage(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return s.render(c, pageData{Title: "Реклама", Page: "quarantine", Quarantine: items, Flash: flash(c)})
+	return s.render(c, &pageData{Title: "Реклама", Page: "quarantine", Quarantine: items, Flash: flash(c)})
 }
 
 func (s *Server) falsePositive(c fiber.Ctx) error {
@@ -323,7 +348,7 @@ func (s *Server) topicsPage(c fiber.Ctx) error {
 	if err != nil {
 		return err
 	}
-	return s.render(c, pageData{Title: "Темы", Page: "topics", Topics: topics, Flash: flash(c)})
+	return s.render(c, &pageData{Title: "Темы", Page: "topics", Topics: topics, Flash: flash(c)})
 }
 
 func (s *Server) topicAdd(c fiber.Ctx) error {
@@ -348,7 +373,7 @@ func (s *Server) settingsPage(c fiber.Ctx) error {
 	target, _ := s.store.GetSetting(c.Context(), "telegram.target_channel")
 	ids, _ := s.store.GetSetting(c.Context(), "telegram.feedback_user_ids")
 	botStatus, _ := s.store.GetSetting(c.Context(), "status.bot")
-	return s.render(c, pageData{
+	return s.render(c, &pageData{
 		Title: "Настройки", Page: "settings", TargetChannel: target,
 		FeedbackUserIDs: ids, BotStatus: botStatus, Flash: flash(c),
 	})
@@ -387,7 +412,7 @@ func (s *Server) telegramCode(c fiber.Ctx) error {
 	return s.redirect(c, "/settings?ok=code-saved")
 }
 
-func (s *Server) render(c fiber.Ctx, data pageData) error {
+func (s *Server) render(c fiber.Ctx, data *pageData) error {
 	data.Token = s.config.Admin.QueryToken
 	data.CSRF, _ = c.Locals("csrf").(string)
 	var output strings.Builder

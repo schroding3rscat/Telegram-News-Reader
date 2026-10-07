@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/base64"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -33,6 +34,16 @@ func testServer(t *testing.T) *Server {
 	return server
 }
 
+func readBody(t *testing.T, response *http.Response) string {
+	t.Helper()
+	defer func() { _ = response.Body.Close() }()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(body)
+}
+
 func TestTokenMiddlewareRunsBeforeBasicAuth(t *testing.T) {
 	t.Parallel()
 	server := testServer(t)
@@ -51,6 +62,45 @@ func TestTokenMiddlewareRunsBeforeBasicAuth(t *testing.T) {
 	}
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("without auth: expected 401, got %d", response.StatusCode)
+	}
+}
+
+func TestDashboardRequiresSetupAndShowsCharts(t *testing.T) {
+	t.Parallel()
+	server := testServer(t)
+	token := strings.Repeat("t", 24)
+	auth := "Basic " + base64.StdEncoding.EncodeToString([]byte("admin:secret"))
+
+	request := httptest.NewRequest(http.MethodGet, "/?token="+token, http.NoBody)
+	request.Header.Set("Authorization", auth)
+	response, err := server.app.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusSeeOther {
+		t.Fatalf("expected redirect to setup, got %d", response.StatusCode)
+	}
+
+	if err := server.store.PutSetting(t.Context(), "setup.complete", "true"); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.store.AddHourlyMetrics(t.Context(), 4, 2, 250, 1); err != nil {
+		t.Fatal(err)
+	}
+	request = httptest.NewRequest(http.MethodGet, "/?token="+token, http.NoBody)
+	request.Header.Set("Authorization", auth)
+	response, err = server.app.Test(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.StatusCode)
+	}
+	body := readBody(t, response)
+	for _, snippet := range []string{"Обработано новостей", ">4<", "Отсеяно рекламы", "Время ответа модели"} {
+		if !strings.Contains(body, snippet) {
+			t.Fatalf("dashboard missing %q in %s", snippet, body)
+		}
 	}
 }
 

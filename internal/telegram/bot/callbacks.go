@@ -115,6 +115,7 @@ func (p *CallbackProcessor) handle(ctx context.Context, callback callbackQuery) 
 		); err != nil {
 			return err
 		}
+		_ = p.store.AddHourlyMetrics(ctx, 0, 1, 0, 0)
 		return p.answer(ctx, callback.ID, "Помечено как реклама", false)
 	case "topic":
 		var classification classifier.Result

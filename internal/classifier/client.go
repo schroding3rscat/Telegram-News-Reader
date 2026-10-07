@@ -98,7 +98,10 @@ func (c *Client) Classify(ctx context.Context, text string, topics []storage.Top
 	}
 
 	httpRequest.Header.Set("Content-Type", "application/json")
+	started := time.Now()
 	response, err := c.http.Do(httpRequest)
+	elapsedMs := time.Since(started).Milliseconds()
+	_ = c.store.AddHourlyMetrics(ctx, 0, 0, elapsedMs, 1)
 	if err != nil {
 		return Result{}, fmt.Errorf("LLM request: %w", err)
 	}

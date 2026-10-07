@@ -11,6 +11,7 @@
   <a class="brand" href="/?token={{.Token}}">Telegram News Reader</a>
   {{if ne .Page "setup"}}
   <nav>
+    <a href="/?token={{.Token}}">Обзор</a>
     <a href="/sources?token={{.Token}}">Источники</a>
     <a href="/quarantine?token={{.Token}}">Реклама</a>
     <a href="/topics?token={{.Token}}">Темы</a>
@@ -20,7 +21,27 @@
 </header>
 <main>
   {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
-  {{if eq .Page "setup"}}
+  {{if eq .Page "dashboard"}}
+    <h1>Обзор</h1>
+    <p class="muted">Сводка за последние {{.Days}} дней. Метрики пишутся при обработке постов и не пропадают после очистки очереди.</p>
+    <section class="stats">
+      <article>
+        <p class="muted">Обработано новостей</p>
+        <strong>{{.Dashboard.ProcessedTotal}}</strong>
+      </article>
+      <article>
+        <p class="muted">Отсеяно рекламы</p>
+        <strong>{{.Dashboard.AdsTotal}}</strong>
+      </article>
+      <article>
+        <p class="muted">Средний ответ модели</p>
+        <strong>{{.LatencyLabel}}</strong>
+      </article>
+    </section>
+    {{template "chart" .ProcessedChart}}
+    {{template "chart" .AdsChart}}
+    {{template "chart" .LatencyChart}}
+  {{else if eq .Page "setup"}}
     <h1>Первоначальная настройка</h1>
     <p>Данные сохраняются локально. После настройки Telegram-клиенты запустятся автоматически.</p>
     <form method="post" action="/setup?token={{.Token}}">
@@ -104,3 +125,17 @@
 </main>
 </body>
 </html>
+{{define "chart"}}
+<figure class="chart">
+  <figcaption>{{.Caption}}</figcaption>
+  <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" aria-label="{{.Caption}}">
+    <line x1="{{.AxisX}}" y1="{{.AxisY}}" x2="{{.Width}}" y2="{{.AxisY}}" class="axis"></line>
+    <line x1="{{.AxisX}}" y1="16" x2="{{.AxisX}}" y2="{{.AxisY}}" class="axis"></line>
+    <text x="8" y="20" class="tick">{{.MaxLabel}}</text>
+    {{if .Points}}<polyline fill="none" class="line" points="{{.Points}}"></polyline>{{end}}
+    {{range .Ticks}}
+      <text x="{{.X}}" y="212" text-anchor="middle" class="tick">{{.Label}}</text>
+    {{end}}
+  </svg>
+</figure>
+{{end}}
