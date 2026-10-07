@@ -1,0 +1,381 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+  issues-exit-code: 1
+  tests: false
+  allow-parallel-runners: false
+output:
+  path-prefix: ""
+linters:
+  default: all
+  disable:
+    - cyclop
+    - dupl
+    - exhaustruct
+    - gocognit
+    - godot
+    - ireturn
+    - nakedret
+    - nestif
+    - nlreturn
+    - nolintlint
+    - nonamedreturns
+    - tagliatelle
+    - varnamelen
+    - wrapcheck
+    - wsl
+    - noinlineerr
+    - embeddedstructfieldcheck
+    - gomodguard
+    - goconst
+    - err113
+  settings:
+    exhaustruct_v5:
+      explicit-mode: true
+    decorder:
+      dec-order:
+        - type
+        - const
+        - var
+        - func
+    depguard:
+      rules:
+        main:
+          files:
+            - $all
+          allow:
+            - $gostd
+            - gitlab.wildberries.ru
+            - github.com
+            - go.uber.org
+            - golang.org
+            - go.opentelemetry.io
+            - google.golang.org
+            - gopkg.in
+            - modernc.org
+            - cirello.io/pglock
+            - go.etcd.io
+            - gopkg.wb.ru
+          deny:
+            - pkg: github.com/sirupsen/logrus
+              desc: not allowed
+            - pkg: github.com/pkg/errors
+              desc: Should be replaced by standard lib errors package
+            - pkg: github.com/satori/go.uuid
+              desc: Deprecated uuid package with vulnerability with high severity
+    dogsled:
+      max-blank-identifiers: 2
+    dupl:
+      threshold: 110
+    dupword:
+      keywords:
+        - the
+        - and
+        - a
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    errchkjson:
+      check-error-free-encoding: true
+      report-no-exported: false
+    exhaustive:
+      check:
+        - switch
+        - map
+      default-signifies-exhaustive: true
+      ignore-enum-members: Example.+
+      ignore-enum-types: Example.+
+      package-scope-only: true
+      explicit-exhaustive-map: true
+      explicit-exhaustive-switch: true
+    funlen:
+      lines: 200
+      statements: 100
+    gocognit:
+      min-complexity: 30
+    gocritic:
+      disabled-checks:
+        - regexpMust
+      enabled-tags:
+        - performance
+      disabled-tags:
+        - experimental
+      settings:
+        captLocal:
+          paramsOnly: true
+        hugeParam:
+          sizeThreshold: 512
+        rangeValCopy:
+          sizeThreshold: 64
+    gocyclo:
+      min-complexity: 32
+    godox:
+      keywords:
+        - NOTE
+        - OPTIMIZE
+        - HACK
+    gosec:
+      includes:
+        - G101
+        - G102
+        - G103
+        - G104
+        - G106
+        - G107
+        - G108
+        - G109
+        - G110
+        - G111
+        - G112
+        - G114
+        - G201
+        - G202
+        - G203
+        - G204
+        - G301
+        - G302
+        - G303
+        - G304
+        - G305
+        - G306
+        - G307
+        - G401
+        - G402
+        - G403
+        - G404
+        - G501
+        - G502
+        - G503
+        - G504
+        - G505
+        - G601
+      severity: medium
+      confidence: medium
+      config:
+        G101:
+          entropy_threshold: "80.0"
+          ignore_entropy: false
+          pattern: (?i)example
+          per_char_threshold: "3.0"
+          truncate: "32"
+        G104:
+          fmt:
+            - Fscanf
+        G111:
+          pattern: custom\.Dir\(\)
+        G301: "0750"
+        G302: "0600"
+        G306: "0600"
+        global:
+          '#nosec': '#my-custom-nosec'
+          audit: true
+          nosec: true
+          show-ignored: true
+      concurrency: 12
+    gosmopolitan:
+      allow-time-local: true
+      escape-hatches:
+        - github.com/nicksnyder/go-i18n/v2/i18n.Message
+        - example.com/your/project/i18n/markers.Raw
+        - example.com/your/project/i18n/markers.OK
+        - example.com/your/project/i18n/markers.TODO
+        - command-line-arguments.Simple
+      watch-for-scripts:
+        - Devanagari
+        - Han
+        - Hangul
+        - Hiragana
+        - Katakana
+    govet:
+      enable-all: true
+      settings:
+        printf:
+          funcs:
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+            - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+    interfacebloat:
+      max: 35
+    lll:
+      line-length: 260
+      tab-width: 1
+    maintidx:
+      under: 19
+    misspell:
+      locale: US
+      ignore-rules:
+        - someword
+    nakedret:
+      max-func-lines: 150
+    nestif:
+      min-complexity: 5
+    nlreturn:
+      # Size of the block (including return statement that is still "OK"),
+      # so no return split required.
+      # Default: 1
+      block-size: 2
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: false
+    revive:
+      rules:
+        - name: exported
+          disabled: true
+    rowserrcheck:
+      packages:
+        - github.com/jmoiron/sqlx
+    tagalign:
+      align: false
+      sort: false
+      order:
+        - envconfig
+        - required
+        - db
+        - json
+        - swaggertype
+        - format
+        - default
+        - example
+        - yaml
+        - yml
+        - toml
+        - mapstructure
+        - binding
+        - validate
+    testpackage:
+      skip-regexp: (export|internal)_test\.go
+    unparam:
+      check-exported: false
+    whitespace:
+      multi-if: false
+      multi-func: false
+    wsl:
+      strict-append: true
+      allow-assign-and-call: true
+      allow-multiline-assign: true
+      force-case-trailing-whitespace: 0
+      allow-trailing-comment: false
+      allow-separated-leading-comment: false
+      allow-cuddle-declarations: false
+      force-err-cuddling: false
+    wsl_v5:
+      branch-max-lines: 4
+      disable:
+        - return
+        - assign
+        - if
+        - append
+        - range
+        - decl
+        - defer
+        - go
+    godoclint:
+      disable:
+        - single-pkg-doc
+    unqueryvet:
+      check-sql-builders: true
+      check-aliased-wildcard: true
+      check-string-concat: true
+      check-format-strings: true
+      check-string-builder: true
+      check-subqueries: true
+      check-n1: true
+      check-sql-injection: true
+      check-tx-leaks: true
+      allowed-patterns:
+        - '(?i)COUNT\(\s*\*\s*\)'
+        - '(?i)MAX\(\s*\*\s*\)'
+        - '(?i)MIN\(\s*\*\s*\)'
+        - '(?i)SELECT \* FROM information_schema\..*'
+        - '(?i)SELECT \* FROM pg_catalog\..*'
+        - '(?i)SELECT \* FROM sys\..*'
+        - '(?i)EXISTS\s*\(\s*SELECT\s+\*'
+      custom-rules:
+        - id: allow-exists-function
+          pattern: EXISTS (SELECT * FROM $TABLE)
+          action: allow
+    gomoddirectives:
+      replace-allow-list:
+        - gitlab.wildberries.ru/portals/suppliers-portal-core/abac.git
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - gosmopolitan
+        path: '(^|/)(pkg/)?translations?/'
+      - linters:
+          - dupl
+          - errcheck
+          - gocritic
+          - gocyclo
+          - gosec
+          - lll
+          - godoclint
+          - mnd
+        path: _test\.go
+      - linters:
+          - mnd
+        path: '(^|/)main\.go$'
+      - linters:
+          - gosec
+        path: internal/hmac/
+        text: weak cryptographic primitive
+      - linters:
+          - unqueryvet
+        text: 'Rollback\(\) error is ignored with blank identifier'
+      - linters:
+          - unqueryvet
+        text: 'fmt.Sprintf with user input passed to Get\(\)'
+      - linters:
+          - unqueryvet
+        text: 'transaction started inside loop'
+        source: WithContext
+      - linters:
+          - unqueryvet
+        path: pkg/server/
+        text: 'potentially tainted variable .* used in Query'
+      - linters:
+          - unqueryvet
+        text: "tainted variable 'shardID'"
+        source: 'Get\(shardID\)'
+      - linters:
+          - staticcheck
+        text: 'SA9003:|SA1019:'
+      - linters:
+          - lll
+        source: '^//go:generate '
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  new: false
+severity:
+  default: error
+  rules:
+    - linters:
+        - dupl
+      severity: info
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    gofumpt:
+      extra-rules: false
+    goimports:
+      local-prefixes:
+        - github.com/schroding3rscat/Telegram-News-Reader
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

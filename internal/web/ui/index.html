@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — Telegram News Reader</title>
+  <link rel="stylesheet" href="/assets/app.css?token={{.Token}}">
+</head>
+<body>
+<header>
+  <a class="brand" href="/?token={{.Token}}">Telegram News Reader</a>
+  {{if ne .Page "setup"}}
+  <nav>
+    <a href="/sources?token={{.Token}}">Источники</a>
+    <a href="/quarantine?token={{.Token}}">Реклама</a>
+    <a href="/topics?token={{.Token}}">Темы</a>
+    <a href="/settings?token={{.Token}}">Настройки</a>
+  </nav>
+  {{end}}
+</header>
+<main>
+  {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
+  {{if eq .Page "setup"}}
+    <h1>Первоначальная настройка</h1>
+    <p>Данные сохраняются локально. После настройки Telegram-клиенты запустятся автоматически.</p>
+    <form method="post" action="/setup?token={{.Token}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>Telegram API ID<input name="app_id" type="number" required></label>
+      <label>Telegram API Hash<input name="app_hash" required></label>
+      <label>Телефон аккаунта<input name="phone" placeholder="+79990000000" required></label>
+      <label>Пароль Telegram 2FA<input name="telegram_password" type="password"></label>
+      <label>Bot token<input name="bot_token" type="password" required></label>
+      <label>Целевой канал<input name="target_channel" placeholder="@my_channel или -100..." required></label>
+      <label>Telegram user ID для кнопок<input name="feedback_user_ids" placeholder="123,456" required></label>
+      <button type="submit">Сохранить и запустить</button>
+    </form>
+  {{else if eq .Page "sources"}}
+    <h1>Каналы-источники</h1>
+    <form class="inline" method="post" action="/sources?token={{.Token}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input name="url" placeholder="@channel или invite-ссылка" required>
+      <button type="submit">Добавить</button>
+    </form>
+    <div class="cards">
+    {{range .Sources}}
+      <article>
+        <h3>{{if .Title}}{{.Title}}{{else}}{{.URL}}{{end}}</h3>
+        <p><code>{{.URL}}</code></p>
+        <p>Статус: <strong>{{.Status}}</strong>{{if .LastError}} — {{.LastError}}{{end}}</p>
+        <form method="post" action="/sources/{{.ID}}/delete?token={{$.Token}}">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="danger" type="submit">Удалить</button>
+        </form>
+      </article>
+    {{else}}<p>Источники пока не добавлены.</p>{{end}}
+    </div>
+  {{else if eq .Page "quarantine"}}
+    <h1>Рекламный карантин</h1>
+    {{range .Quarantine}}
+      <article>
+        <h3>{{.SourceTitle}}</h3>
+        <p class="message">{{.Text}}</p>
+        <p>{{.Reason}}, confidence {{printf "%.2f" .Confidence}}</p>
+        {{if not .ResolvedAt}}
+        <form class="inline" method="post" action="/quarantine/{{.ID}}/false-positive?token={{$.Token}}">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button type="submit">Это не реклама</button>
+        </form>
+        {{else}}<p>Решение: {{.Resolution}}</p>{{end}}
+      </article>
+    {{else}}<p>Карантин пуст.</p>{{end}}
+  {{else if eq .Page "topics"}}
+    <h1>Неинтересные темы</h1>
+    <form class="inline" method="post" action="/topics?token={{.Token}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input name="name" placeholder="Например: криптовалюты" required>
+      <button type="submit">Добавить</button>
+    </form>
+    {{range .Topics}}
+      <article class="row"><span>{{.Name}}</span>
+        <form method="post" action="/topics/{{.ID}}/delete?token={{$.Token}}">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <button class="danger" type="submit">Удалить</button>
+        </form>
+      </article>
+    {{else}}<p>Темы пока не добавлены.</p>{{end}}
+  {{else if eq .Page "settings"}}
+    <h1>Настройки</h1>
+    {{if .BotStatus}}<p>Проверка бота: <strong>{{.BotStatus}}</strong></p>{{end}}
+    <form method="post" action="/settings?token={{.Token}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <label>Bot token<input name="bot_token" type="password" placeholder="Оставьте пустым, чтобы не менять"></label>
+      <label>Целевой канал<input name="target_channel" value="{{.TargetChannel}}"></label>
+      <label>Telegram user ID для кнопок<input name="feedback_user_ids" value="{{.FeedbackUserIDs}}"></label>
+      <button type="submit">Сохранить</button>
+    </form>
+    <h2>Код входа Telegram</h2>
+    <form class="inline" method="post" action="/telegram/code?token={{.Token}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <input name="code" autocomplete="one-time-code" required>
+      <button type="submit">Отправить код</button>
+    </form>
+  {{end}}
+</main>
+</body>
+</html>

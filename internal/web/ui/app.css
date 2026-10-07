@@ -1,0 +1,20 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; background: #111827; color: #e5e7eb; }
+header { display: flex; gap: 2rem; align-items: center; padding: 1rem 2rem; background: #1f2937; }
+a { color: #93c5fd; text-decoration: none; }
+.brand { color: white; font-weight: 700; }
+nav { display: flex; flex-wrap: wrap; gap: 1rem; }
+main { max-width: 900px; margin: 2rem auto; padding: 0 1rem 3rem; }
+form { display: grid; gap: .8rem; max-width: 650px; }
+label { display: grid; gap: .35rem; }
+input, button { font: inherit; padding: .7rem; border: 1px solid #4b5563; border-radius: .45rem; }
+input { background: #111827; color: white; }
+button { cursor: pointer; background: #2563eb; color: white; border: 0; width: max-content; }
+button.danger { background: #991b1b; }
+.inline { display: flex; flex-wrap: wrap; align-items: center; max-width: none; }
+.inline input:not([type=hidden]) { min-width: min(30rem, 70vw); }
+article { margin: 1rem 0; padding: 1rem; background: #1f2937; border-radius: .6rem; }
+.row { display: flex; justify-content: space-between; align-items: center; }
+.message { white-space: pre-wrap; overflow-wrap: anywhere; }
+.flash { padding: .8rem; margin-bottom: 1rem; background: #065f46; border-radius: .4rem; }
+code { overflow-wrap: anywhere; }

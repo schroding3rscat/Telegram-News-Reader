@@ -1,0 +1,42 @@
+listen: 127.0.0.1:8080
+data_dir: /var/lib/telegram-news-reader
+database_path: /var/lib/telegram-news-reader/reader.db
+
+admin:
+  username: admin
+  password_bcrypt: "$2a$12$replace.with.a.bcrypt.hash"
+  query_token: "replace-with-at-least-24-random-characters"
+  public_url: "https://news.example.com"
+
+telegram:
+  app_id: 0
+  app_hash: ""
+  phone: ""
+  session_path: /var/lib/telegram-news-reader/telegram.session
+  bot_token: ""
+  target_channel: ""
+  feedback_user_ids: []
+  bot_api_base_url: https://api.telegram.org
+
+llm:
+  base_url: http://127.0.0.1:8081
+  model: qwen3-0.6b
+  timeout: 45s
+  max_examples: 6
+  ad_threshold: 0.78
+  review_threshold: 0.52
+
+pipeline:
+  workers: 1
+  poll_interval: 2s
+  retry_base: 10s
+  retention: 168h
+  album_settle_delay: 2s
+  text_hamming_distance: 7
+  image_hamming_distance: 8
+  max_queue_depth: 100000
+  classification_batch: 1
+
+log:
+  level: info
+  json: false
