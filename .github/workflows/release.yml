@@ -25,8 +25,9 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DGGML_NATIVE=OFF \
-            -DGGML_AVX=ON \
-            -DGGML_AVX2=ON \
+            -DGGML_AVX=OFF \
+            -DGGML_AVX2=OFF \
+            -DGGML_AVX512=OFF \
             -DLLAMA_CURL=OFF
           cmake --build /tmp/llama.cpp/build --config Release -j2 --target llama-server
       - name: Build release archive

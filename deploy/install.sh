@@ -145,16 +145,32 @@ install_caddy() {
 install_release() {
   local tmp archive checksum
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
   archive="${tmp}/telegram-news-reader-linux-amd64.tar.gz"
   checksum="${archive}.sha256"
   log "Downloading signed release artifacts"
-  curl -fL --retry 3 "${RELEASE_BASE}/telegram-news-reader-linux-amd64.tar.gz" -o "$archive"
+  curl -fL --retry 3 "${RELEASE_BASE}/telegram-news-reader-linux-amd64.tar.gz" -o "$archive" ||
+    die "Release archive is missing at ${RELEASE_BASE}. Publish a v* GitHub release first."
   curl -fL --retry 3 "${RELEASE_BASE}/telegram-news-reader-linux-amd64.tar.gz.sha256" -o "$checksum"
   (cd "$tmp" && sha256sum -c "$(basename "$checksum")")
   mkdir -p "$INSTALL_DIR"
   tar -xzf "$archive" -C "$INSTALL_DIR"
   chmod 0755 "$INSTALL_DIR/telegram-news-reader" "$INSTALL_DIR/llama-server"
+  rm -rf "$tmp"
+}
+
+wait_http() {
+  local url="$1" expect="${2:-}" code="" attempt
+  for attempt in $(seq 1 60); do
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 "$url" || true)"
+    if [[ -n "$expect" && "$code" == "$expect" ]]; then
+      return 0
+    fi
+    if [[ -z "$expect" && "$code" != "000" && "$code" != "" ]]; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
 }
 
 install_caddy
@@ -224,11 +240,15 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+Type=simple
 User=${USER_NAME}
 Group=${USER_NAME}
-ExecStart=${INSTALL_DIR}/llama-server -m ${MODEL_FILE} --host 127.0.0.1 --port 8081 -c 2048 -np 1 -ngl 0 --jinja
+WorkingDirectory=${DATA_DIR}
+Environment=HOME=${DATA_DIR}
+ExecStart=${INSTALL_DIR}/llama-server -m ${MODEL_FILE} --alias qwen3-0.6b --host 127.0.0.1 --port 8081 -c 2048 -np 1 -ngl 0 --jinja
 Restart=on-failure
 RestartSec=5
+TimeoutStartSec=180
 MemoryMax=1500M
 NoNewPrivileges=true
 PrivateTmp=true
@@ -288,28 +308,27 @@ EOF
 
 caddy validate --config /etc/caddy/Caddyfile
 systemctl daemon-reload
-systemctl enable --now telegram-news-reader-llm.service telegram-news-reader.service caddy.service
-systemctl restart telegram-news-reader-llm.service telegram-news-reader.service caddy.service
+systemctl enable telegram-news-reader-llm.service telegram-news-reader.service caddy.service
 
-log "Waiting for local services"
-for _ in $(seq 1 60); do
-  if curl -fsS --max-time 2 "http://127.0.0.1:8081/health" >/dev/null &&
-     [[ "$(curl -sS -o /dev/null -w '%{http_code}' --max-time 2 \
-       "http://127.0.0.1:8080/healthz?token=${QUERY_TOKEN}")" == "401" ]]; then
-    break
-  fi
-  sleep 2
-done
+log "Starting local LLM"
+systemctl restart telegram-news-reader-llm.service
+if ! wait_http "http://127.0.0.1:8081/health"; then
+  journalctl -u telegram-news-reader-llm.service -n 80 --no-pager >&2 || true
+  die "llama-server did not open 127.0.0.1:8081. Inspect: journalctl -u telegram-news-reader-llm"
+fi
+
+log "Starting application and Caddy"
+systemctl restart telegram-news-reader.service caddy.service
+if ! wait_http "http://127.0.0.1:8080/healthz?token=${QUERY_TOKEN}" "401"; then
+  journalctl -u telegram-news-reader.service -n 80 --no-pager >&2 || true
+  die "Admin service did not open 127.0.0.1:8080. Inspect: journalctl -u telegram-news-reader"
+fi
 
 log "Waiting for Let's Encrypt certificate"
-for _ in $(seq 1 30); do
-  if [[ "$(curl -sS -o /dev/null -w '%{http_code}' --max-time 5 \
-      "https://${DOMAIN}/healthz?token=${QUERY_TOKEN}")" == "401" ]]; then
-    log "Installation complete"
-    printf 'Admin URL: https://%s/?token=%s\n' "$DOMAIN" "$QUERY_TOKEN"
-    exit 0
-  fi
-  sleep 3
-done
+if ! wait_http "https://${DOMAIN}/healthz?token=${QUERY_TOKEN}" "401"; then
+  journalctl -u caddy.service -n 80 --no-pager >&2 || true
+  die "Services were installed, but HTTPS health check failed. Inspect: journalctl -u caddy"
+fi
 
-die "Services were installed, but HTTPS health check failed. Inspect: journalctl -u caddy -u telegram-news-reader"
+log "Installation complete"
+printf 'Admin URL: https://%s/?token=%s\n' "$DOMAIN" "$QUERY_TOKEN"
