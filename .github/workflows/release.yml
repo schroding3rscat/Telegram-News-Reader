@@ -18,22 +18,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build llama.cpp
-        run: |
-          git clone --depth 1 https://github.com/ggml-org/llama.cpp /tmp/llama.cpp
-          cmake -S /tmp/llama.cpp -B /tmp/llama.cpp/build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DGGML_NATIVE=OFF \
-            -DGGML_AVX=OFF \
-            -DGGML_AVX2=OFF \
-            -DGGML_AVX512=OFF \
-            -DLLAMA_CURL=OFF
-          cmake --build /tmp/llama.cpp/build --config Release -j2 --target llama-server
       - name: Build release archive
         env:
           VERSION: ${{ github.ref_name }}
-          LLAMA_SERVER: /tmp/llama.cpp/build/bin/llama-server
         run: ./scripts/build-release.sh
       - name: Publish GitHub release
         if: startsWith(github.ref, 'refs/tags/')

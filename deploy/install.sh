@@ -154,8 +154,23 @@ install_release() {
   (cd "$tmp" && sha256sum -c "$(basename "$checksum")")
   mkdir -p "$INSTALL_DIR"
   tar -xzf "$archive" -C "$INSTALL_DIR"
-  chmod 0755 "$INSTALL_DIR/telegram-news-reader" "$INSTALL_DIR/llama-server"
+  chmod 0755 "$INSTALL_DIR/telegram-news-reader"
+  if [[ -x "$INSTALL_DIR/llama/llama-server" ]]; then
+    chmod 0755 "$INSTALL_DIR/llama/llama-server"
+  elif [[ -x "$INSTALL_DIR/llama-server" ]]; then
+    chmod 0755 "$INSTALL_DIR/llama-server"
+  else
+    die "Release archive is missing llama-server"
+  fi
   rm -rf "$tmp"
+}
+
+llama_bin() {
+  if [[ -x "$INSTALL_DIR/llama/llama-server" ]]; then
+    printf '%s\n' "$INSTALL_DIR/llama/llama-server"
+  else
+    printf '%s\n' "$INSTALL_DIR/llama-server"
+  fi
 }
 
 wait_http() {
@@ -233,6 +248,9 @@ else
   ADMIN_USER="$(awk '/username:/ {gsub(/["'\'']/, "", $2); print $2; exit}' "$CONFIG_FILE")"
 fi
 
+LLAMA_BIN="$(llama_bin)"
+LLAMA_LIBDIR="$(dirname "$LLAMA_BIN")"
+
 cat >/etc/systemd/system/telegram-news-reader-llm.service <<EOF
 [Unit]
 Description=Telegram News Reader local LLM
@@ -245,7 +263,8 @@ User=${USER_NAME}
 Group=${USER_NAME}
 WorkingDirectory=${DATA_DIR}
 Environment=HOME=${DATA_DIR}
-ExecStart=${INSTALL_DIR}/llama-server -m ${MODEL_FILE} --alias qwen3-0.6b --host 127.0.0.1 --port 8081 -c 2048 -np 1 -ngl 0 --jinja
+Environment=LD_LIBRARY_PATH=${LLAMA_LIBDIR}
+ExecStart=${LLAMA_BIN} -m ${MODEL_FILE} --alias qwen3-0.6b --host 127.0.0.1 --port 8081 -c 2048 -np 1 -ngl 0 --jinja
 Restart=on-failure
 RestartSec=5
 TimeoutStartSec=180
