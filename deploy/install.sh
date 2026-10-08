@@ -76,7 +76,7 @@ case "${ID:-}" in
   *) die "Supported distributions: Debian and Ubuntu" ;;
 esac
 apt-get update -qq
-apt-get install -y -qq ca-certificates openssl iproute2
+apt-get install -y -qq ca-certificates openssl iproute2 libgomp1
 
 available_kb="$(awk '/MemAvailable/ {print $2}' /proc/meminfo)"
 ((available_kb >= 1500000)) || die "At least 1.5 GB available RAM is required"
