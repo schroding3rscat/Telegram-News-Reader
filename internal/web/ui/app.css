@@ -7,6 +7,7 @@ nav { display: flex; flex-wrap: wrap; gap: 1rem; }
 main { max-width: 900px; margin: 2rem auto; padding: 0 1rem 3rem; }
 form { display: grid; gap: .8rem; max-width: 650px; }
 label { display: grid; gap: .35rem; }
+.hint { color: #9ca3af; font-size: .9rem; font-weight: 400; line-height: 1.4; }
 input, button { font: inherit; padding: .7rem; border: 1px solid #4b5563; border-radius: .45rem; }
 input { background: #111827; color: white; }
 button { cursor: pointer; background: #2563eb; color: white; border: 0; width: max-content; }

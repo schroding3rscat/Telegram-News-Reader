@@ -43,16 +43,51 @@
     {{template "chart" .LatencyChart}}
   {{else if eq .Page "setup"}}
     <h1>Первоначальная настройка</h1>
-    <p>Данные сохраняются локально. После настройки Telegram-клиенты запустятся автоматически.</p>
+    <p>Данные остаются на этой машине. После сохранения сервис сам поднимет пользовательскую сессию и бота.</p>
     <form method="post" action="/setup?token={{.Token}}">
       <input type="hidden" name="csrf" value="{{.CSRF}}">
-      <label>Telegram API ID<input name="app_id" type="number" required></label>
-      <label>Telegram API Hash<input name="app_hash" required></label>
-      <label>Телефон аккаунта<input name="phone" placeholder="+79990000000" required></label>
-      <label>Пароль Telegram 2FA<input name="telegram_password" type="password"></label>
-      <label>Bot token<input name="bot_token" type="password" required></label>
-      <label>Целевой канал<input name="target_channel" placeholder="@my_channel или -100..." required></label>
-      <label>Telegram user ID для кнопок<input name="feedback_user_ids" placeholder="123,456" required></label>
+      <label>
+        Telegram API ID
+        <span class="hint">Где взять: войдите на <a href="https://my.telegram.org/apps" rel="noreferrer">my.telegram.org/apps</a> тем же номером, что ниже, нажмите «API development tools» и создайте приложение — поле <code>App api_id</code>.</span>
+        <span class="hint">Зачем: это идентификатор пользовательского MTProto-клиента. Без него сервис не может читать каналы от имени аккаунта.</span>
+        <input name="app_id" type="number" required>
+      </label>
+      <label>
+        Telegram API Hash
+        <span class="hint">Где взять: там же, <a href="https://my.telegram.org/apps" rel="noreferrer">my.telegram.org/apps</a>, поле <code>App api_hash</code> рядом с API ID.</span>
+        <span class="hint">Зачем: секрет к API ID. Вместе они открывают пользовательскую сессию. Не отправляйте хеш другим людям.</span>
+        <input name="app_hash" required>
+      </label>
+      <label>
+        Телефон аккаунта
+        <span class="hint">Где взять: номер SIM, на который зарегистрирован отдельный Telegram-аккаунт для чтения каналов. Формат как в Telegram: <code>+79990000000</code>.</span>
+        <span class="hint">Зачем: с этого аккаунта сервис вступает в источники и забирает новые посты. Личный ежедневный аккаунт лучше не использовать — возможен FLOOD_WAIT.</span>
+        <input name="phone" placeholder="+79990000000" required>
+      </label>
+      <label>
+        Пароль Telegram 2FA
+        <span class="hint">Где взять: облачный пароль, который вы сами задали в Telegram: Настройки → Конфиденциальность → Двухэтапная аутентификация. Если 2FA выключена — оставьте пустым.</span>
+        <span class="hint">Зачем: без него сессия не дойдёт до конца, если на номере включена двухфакторка. Код из SMS/Telegram вводится позже, в «Настройках».</span>
+        <input name="telegram_password" type="password">
+      </label>
+      <label>
+        Bot token
+        <span class="hint">Где взять: напишите <code>@BotFather</code> → <code>/newbot</code> (или <code>/token</code> для уже созданного бота). Придёт строка вида <code>123456:ABC-DEF...</code>.</span>
+        <span class="hint">Зачем: этим ботом сервис публикует отфильтрованные новости в целевой канал (forward публичных постов или копия приватных).</span>
+        <input name="bot_token" type="password" required>
+      </label>
+      <label>
+        Целевой канал
+        <span class="hint">Где взять: публичный username канала (<code>@my_channel</code>) или его числовой ID. ID видно в ссылке вида <code>https://t.me/c/1234567890/1</code> — тогда пишите <code>-1001234567890</code>. Бот из поля выше должен быть админом канала.</span>
+        <span class="hint">Зачем: сюда складываются новости, которые прошли фильтр рекламы, тем и дублей.</span>
+        <input name="target_channel" placeholder="@my_channel или -100..." required>
+      </label>
+      <label>
+        Telegram user ID для кнопок
+        <span class="hint">Где взять: числовой ID, не @username. Напишите <code>@userinfobot</code> или <code>@getidsbot</code> — они пришлют <code>Id</code>. Несколько людей — через запятую.</span>
+        <span class="hint">Зачем: только эти аккаунты могут жать кнопки «реклама» / «неинтересно» под опубликованным постом. Остальным бот ответит отказом.</span>
+        <input name="feedback_user_ids" placeholder="123456789,987654321" required>
+      </label>
       <button type="submit">Сохранить и запустить</button>
     </form>
   {{else if eq .Page "sources"}}
